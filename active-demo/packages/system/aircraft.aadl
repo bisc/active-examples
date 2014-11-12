@@ -1,0 +1,120 @@
+---- Copyright (c) 2014 Carnegie Mellon University. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions
+-- are met:
+--
+-- 1. Redistributions of source code must retain the above copyright
+-- notice, this list of conditions and the following acknowledgments
+-- and disclaimers.
+--
+-- 2. Redistributions in binary form must reproduce the above
+-- copyright notice, this list of conditions and the following
+-- disclaimer in the documentation and/or other materials provided
+-- with the distribution.
+--
+-- 3. The names "Carnegie Mellon University," "SEI" and/or "Software
+-- Engineering Institute" shall not be used to endorse or promote
+-- products derived from this software without prior written
+-- permission. For written permission, please contact
+-- permission@sei.cmu.edu.
+--
+-- 4. Products derived from this software may not be called "SEI" nor
+-- may "SEI" appear in their names without prior written permission of
+-- permission@sei.cmu.edu.
+--
+-- 5. Redistributions of any form whatsoever must retain the following
+-- acknowledgment:
+--
+-- This material is based upon work funded and supported by the
+-- Department of Defense under Contract No. FA8721-05-C-0003 with
+-- Carnegie Mellon University for the operation of the Software
+-- Engineering Institute, a federally funded research and development
+-- center.
+--
+-- Any opinions, findings and conclusions or recommendations expressed
+-- in this material are those of the author(s) and do not necessarily
+-- reflect the views of the United States Department of Defense.
+--
+-- NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE
+-- ENGINEERING INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS"
+-- BASIS. CARNEGIE MELLON UNIVERSITY MAKES NO WARRANTIES OF ANY KIND,
+-- EITHER EXPRESSED OR IMPLIED, AS TO ANY MATTER INCLUDING, BUT NOT
+-- LIMITED TO, WARRANTY OF FITNESS FOR PURPOSE OR MERCHANTABILITY,
+-- EXCLUSIVITY, OR RESULTS OBTAINED FROM USE OF THE MATERIAL. CARNEGIE
+-- MELLON UNIVERSITY DOES NOT MAKE ANY WARRANTY OF ANY KIND WITH
+-- RESPECT TO FREEDOM FROM PATENT, TRADEMARK, OR COPYRIGHT
+-- INFRINGEMENT.
+--
+-- This material has been approved for public release and unlimited
+-- distribution.
+--
+-- DM-0001534
+
+
+package Aircraft public
+with Contract_Properties, SEI, Deployment_Properties,
+	Motion, Surveillance, Energy, Contracts;
+	
+	system AircraftSystem
+	end AircraftSystem;
+	
+	system implementation AircraftSystem.i
+	subcomponents
+		mp : process Motion::MotionProcess.i;
+		sp : process Surveillance::SurveillanceProcess.i;
+		
+		c1 : processor;
+		c2 : processor;
+		
+		b1: device Energy::Battery; 
+
+		
+	properties
+		-- Processor co-locations	
+		Contract_Properties::Not_Colocated => (reference (mp.comth), reference (sp.survth))
+			applies to mp.stath;
+		Contract_Properties::Not_Colocated => (reference (mp.comth), reference (sp.survth))
+			applies to mp.movth;
+		Contract_Properties::Not_Colocated => (reference (mp.stath), reference (mp.movth))
+			applies to mp.comth;
+		Contract_Properties::Not_Colocated => (reference (mp.stath), reference (mp.movth))
+			applies to sp.survth;
+			
+		Actual_Processor_Binding => (reference (c1))
+			applies to mp.stath;
+		Actual_Processor_Binding => (reference (c1))
+			applies to mp.movth;
+		Actual_Processor_Binding => (reference (c2))
+			applies to mp.comth;
+		Actual_Processor_Binding => (reference (c2))
+			applies to sp.survth;
+		
+		Contract_Properties::CurrentFrequency => 1000.0 
+			applies to c1;
+		Contract_Properties::CurrentFrequency => 2000.0 
+			applies to c2;
+			
+		Deployment_Properties::Scheduling_Protocol => (RMS) 
+			applies to c1; 
+			
+		Processor_Capacity => 1000.0 MIPS 
+			applies to c1; 
+		Processor_Capacity => 2000.0 MIPS 
+			applies to c2; 
+			
+		Deployment_Properties::Scheduling_Protocol => (EDF) 
+			applies to c2;
+		
+		annex contract {** 
+			use contracts::SecureAllocationAnalysis, 
+			contracts::BinPackingAnalysis, 
+			contracts::FreqScalingAnalysis,
+			contracts::LlrekAnalysis, 
+			contracts::ThermalRunawayAnalysis, 
+			contracts::BatterySchedulingAnalysis
+		**};
+ 
+		end AircraftSystem.i;
+		
+end Aircraft;

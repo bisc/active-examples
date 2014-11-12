@@ -1,0 +1,140 @@
+---- Copyright (c) 2014 Carnegie Mellon University. All Rights Reserved.
+--
+-- Redistribution and use in source and binary forms, with or without
+-- modification, are permitted provided that the following conditions
+-- are met:
+--
+-- 1. Redistributions of source code must retain the above copyright
+-- notice, this list of conditions and the following acknowledgments
+-- and disclaimers.
+--
+-- 2. Redistributions in binary form must reproduce the above
+-- copyright notice, this list of conditions and the following
+-- disclaimer in the documentation and/or other materials provided
+-- with the distribution.
+--
+-- 3. The names "Carnegie Mellon University," "SEI" and/or "Software
+-- Engineering Institute" shall not be used to endorse or promote
+-- products derived from this software without prior written
+-- permission. For written permission, please contact
+-- permission@sei.cmu.edu.
+--
+-- 4. Products derived from this software may not be called "SEI" nor
+-- may "SEI" appear in their names without prior written permission of
+-- permission@sei.cmu.edu.
+--
+-- 5. Redistributions of any form whatsoever must retain the following
+-- acknowledgment:
+--
+-- This material is based upon work funded and supported by the
+-- Department of Defense under Contract No. FA8721-05-C-0003 with
+-- Carnegie Mellon University for the operation of the Software
+-- Engineering Institute, a federally funded research and development
+-- center.
+--
+-- Any opinions, findings and conclusions or recommendations expressed
+-- in this material are those of the author(s) and do not necessarily
+-- reflect the views of the United States Department of Defense.
+--
+-- NO WARRANTY. THIS CARNEGIE MELLON UNIVERSITY AND SOFTWARE
+-- ENGINEERING INSTITUTE MATERIAL IS FURNISHED ON AN "AS-IS"
+-- BASIS. CARNEGIE MELLON UNIVERSITY MAKES NO WARRANTIES OF ANY KIND,
+-- EITHER EXPRESSED OR IMPLIED, AS TO ANY MATTER INCLUDING, BUT NOT
+-- LIMITED TO, WARRANTY OF FITNESS FOR PURPOSE OR MERCHANTABILITY,
+-- EXCLUSIVITY, OR RESULTS OBTAINED FROM USE OF THE MATERIAL. CARNEGIE
+-- MELLON UNIVERSITY DOES NOT MAKE ANY WARRANTY OF ANY KIND WITH
+-- RESPECT TO FREEDOM FROM PATENT, TRADEMARK, OR COPYRIGHT
+-- INFRINGEMENT.
+--
+-- This material has been approved for public release and unlimited
+-- distribution.
+--
+-- DM-0001534
+ 
+
+-- all contracts in one file
+package Contracts
+public  
+with Contract_Properties, SEI, Deployment_Properties;
+
+
+annex contract {**
+			-- Security analysis: guarantees that threads with different security levels are not colocated
+			name SecureAllocationAnalysis 
+			input
+	                   thread, thread.SecurityLevel
+			output
+	                   thread.Not_Colocated
+			guarantees
+				forall x1: thread, x2:thread : 
+					x1 != x2 -> (x1.SecurityLevel = x2.SecurityLevel) || x1 in x2.Not_Colocated
+		
+			-- Bin packing analysis: guarantees  not colocated threads are not assigned to the same processor
+			name BinPackingAnalysis 
+			input
+	                   thread, thread.Not_Colocated, processor
+			output
+	                   thread.Actual_Processor_Binding
+	                   
+	        guarantees forall x1:thread, x2: thread: 
+	        		x1 != x2 && x1 in x2.Not_Colocated -> 
+	        		x1.Actual_Processor_Binding[0] != x2.Actual_Processor_Binding[0]
+	        		
+			-- Llrek thread model checking
+			-- Checks concurrency violations: deadlocks and race conditions 
+			-- Assumes that preemption does not alternate
+			name LlrekAnalysis 
+			input  
+	        	thread, thread.Period, thread.Deadline, 
+	        	thread.Source_Text, thread.Priority, 
+	        	thread.Compute_Execution_Time, thread.Priority, 
+	        	thread.Actual_Processor_Binding
+	        	
+			output
+	            system.Is_Thread_Safe
+	        
+	        assumes 
+	        	forall t: thread : t.Period = t.Deadline
+	        
+	        assumes 
+	        	forall t1:thread, t2: thread | t1 != t2 : 
+	        	G (CanPreempt(t1, t2) => (G !CanPreempt(t2, t1)))
+		
+			-- Frequency scaling analysis 
+			-- Adjusts processor frequency based on thread bindings
+			-- Assumes that threads on the same processor 
+			--		behave equivalently to DMS
+			name FreqScalingAnalysis 
+			input
+				thread, thread.Actual_Processor_Binding, 
+	            thread.Deadline, processor
+	            
+			output
+	            processor.Current_Frequency
+	            
+	        assumes 
+	        	forall t1:thread, t2:thread | t1 != t2 && 
+	        	t1.Actual_Processor_Binding[0] = t2.Actual_Processor_Binding[0]: 
+	        	G(CanPreempt(t1, t2) => t1.Deadline < t2.Deadline) 
+		
+		-- Thermal runaway analysis: sets the weighs for thermal neighbors
+    		name ThermalRunawayAnalysis
+			input
+	                   device, device.Cell_Rows, device.Cell_Cols, processor, 
+	                   processor.Current_Frequency
+			output
+					   device.K0, device.K1, device.K2, device.K3
+		-- Battery scheduling analysis:     			
+			name BatterySchedulingAnalysis
+			input
+               device, device.Cell_Rows, device.Cell_Cols, 
+               device.K0, device.K1, device.K2, device.K3,
+               processor.Current_Frequency
+			output
+               device.Serial_Req, device.Paral_Req, device.Bat_Scheduler
+			guarantees
+				forall b: device :  
+					G (b.K0 * b.TN(0) + b.K1*b.TN(1) + b.K2*b.TN(2) + b.K3*b.TN(3) >= 0 )
+		**};
+		
+end Contracts;
